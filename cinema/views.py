@@ -14,7 +14,8 @@ from cinema.serializers import (
     MovieSessionListSerializer,
     MovieDetailSerializer,
     MovieSessionDetailSerializer,
-    MovieListSerializer, OrderSerializer,
+    MovieListSerializer,
+    OrderSerializer,
 )
 
 
@@ -86,17 +87,20 @@ class MovieSessionViewSet(viewsets.ModelViewSet):
             if date:
                 queryset = queryset.filter(show_time__date=date)
 
-        if self.action in "list":
+        if self.action == "list":
             queryset = (
-                queryset
-                    .select_related()
-                    .annotate(
+                queryset.select_related()
+                .annotate(
                     capacity=ExpressionWrapper(
                         F("cinema_hall__rows") * F("cinema_hall__seats_in_row"),
-                        output_field=IntegerField()
+                        output_field=IntegerField(),
                     )
-                ).annotate(
-                    tickets_available=F("capacity") - Count("tickets")
+                )
+                .annotate(tickets_count=Count("tickets"))
+                .annotate(
+                    tickets_available=ExpressionWrapper(
+                        F("capacity") - F("tickets_count"), output_field=IntegerField()
+                    )
                 )
             )
 
@@ -123,14 +127,14 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     pagination_class = OrderPagination
 
-    """def get_serializer_class(self):
+    def get_serializer_class(self):
         if self.action == "list":
             return MovieSessionListSerializer
 
         if self.action == "retrieve":
             return MovieSessionDetailSerializer
 
-        return MovieSessionSerializer"""
+        return MovieSessionSerializer
 
     def get_queryset(self):
         queryset = self.queryset
